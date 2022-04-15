@@ -15,40 +15,36 @@ public class MainSimulation extends Global{
 
     	Signal actSignal;
     	new SignalList();
-
+		Dispatch dispatcher = new Dispatch();
+		dispatcher.disRule = SHORT; //ROUND for Round robin, RANDOM for Random and SHORT for choosing the the one with the shortest que
 
     	//H�r nedan skapas de processinstanser som beh�vs och parametrar i dem ges v�rden.
     	// Here process instances are created (two queues and one generator) and their parameters are given values. 
 
-    	QS Q1 = new QS();
-    	Q1.sendTo = null;
-
     	Gen Generator = new Gen();
-    	Generator.lambda = 0.20; //1 person arriving per minute
-    	Generator.sendTo = Q1; //De genererade kunderna ska skickas till k�systemet QS  // The generated customers shall be sent to Q1
+    	Generator.lambda = 9.09; //Change this value: 9.09 for 0.11/s, 6.66 for 0.15/s and 0.5 for 2.00/s 
+    	Generator.sendTo = dispatcher; //De genererade kunderna ska skickas till k�systemet QS  // The generated customers shall be sent to Q1
 
     	//H�r nedan skickas de f�rsta signalerna f�r att simuleringen ska komma ig�ng.
     	//To start the simulation the first signals are put in the signal list
-
-    	SignalList.SendSignal(READY, Generator, time);
-    	//SignalList.SendSignal(MEASURE, Q1, time);
-
-
-    	// Detta �r simuleringsloope n:
+		
+		SignalList.SendSignal(READY, Generator, time);
+		for(QS q : dispatcher.queues) {
+    		SignalList.SendSignal(MEASURE, q, time);
+		}
+    	// Detta �r simuleringsloopen:
     	// This is the main loop
 
-    	while (Q1.arrived < 1000 ){
+    	while (time < 100000){
     		actSignal = SignalList.FetchSignal();
     		time = actSignal.arrivalTime;
     		actSignal.destination.TreatSignal(actSignal);
     	}
-
-    	
 		
-		System.out.println("Mean queue time for the customers in the normal queue: " + Q1.totTimeN/Q1.nReady + 
-			"\n" + "Mean queue time for the customers in the special queue: " + Q1.totTimeS/Q1.sReady);
-		if (Q1.newCashierNeeded){
-			System.out.println("A new cashier is needed!");
-		}
+		double meanNbrJobs = 0;
+    	for (QS q : dispatcher.queues) {
+    		meanNbrJobs += (1.0*q.accumulated) /  (1.0*q.noMeasurements);
+    	}
+    	System.out.println(meanNbrJobs);
     }
 }

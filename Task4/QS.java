@@ -3,71 +3,73 @@ import java.io.*;
 
 // This class defines a simple queuing system with one server. It inherits Proc so that we can use time and the
 // signal names without dot notation
-class QS extends Proc{
-	public int nbrInNormQ = 0, nbrInSpecQ = 0, normAcc = 0, specAcc = 0, noMeasurements = 0, specLeftQ, normLeftQ;
-	public double specAccTime = 0, normAccTime = 0;
+class QS extends Proc {
+	public int specQ = 0, normQ = 0, sReady = 0, nReady = 0, arrived = 0;
+	public double totTimeS = 0, totTimeN = 0, waitTimeS = 0, waitTimeN;
+	public LinkedList<Double> normal = new LinkedList<Double>(), special = new LinkedList<Double>();
 	public Proc sendTo;
 	Random slump = new Random();
-	private LinkedList<Double> specTime = new LinkedList<Double>(), normTime = new LinkedList<Double>();
+	public boolean newCashierNeeded = false;
 
-	public double expRandom(double mean) {
-		return -mean * Math.log(1 - slump.nextDouble());
-	}
+	public void TreatSignal(Signal x) {
+		switch (x.signalType) {
 
-	public void TreatSignal(Signal x){
-		switch (x.signalType){
+			case SPECARRIVAL:
+				specarr();
+				break;
 
 			case NORMARRIVAL:
-				nbrInNormQ++;
-				if (nbrInNormQ == 1 && nbrInSpecQ == 0){
-					SignalList.SendSignal(NORMREADY,this, time + expRandom(4));
-				}
-				normTime.add(time);
+				normarr();
 				break;
 			
-			case SPECARRIVAL:
-				nbrInSpecQ++;
-				if(nbrInSpecQ == 1)
-					SignalList.SendSignal(SPECREADY, this, time + expRandom(4));
-				specTime.add(time);
+			case READY:
+				ready();
 				break;
+		}
+			
+	}
 
-			case SPECREADY:
-				nbrInSpecQ--;
-				if(sendTo != null)
-					SignalList.SendSignal(SPECARRIVAL, sendTo, time + expRandom(5));
-				if(nbrInSpecQ > 0)
-					SignalList.SendSignal(SPECREADY, this, time + expRandom(4));
-				else if(nbrInNormQ > 0)
-					SignalList.SendSignal(NORMREADY, this, time + expRandom(4));
-				specLeftQ++;
-				specAccTime += time - specTime.poll();	
-				break;
+	private double randomExpCalc(double mean) {
+		double lambda = 1/mean;
+		return -(1/lambda) * Math.log(1 - slump.nextDouble());
+	}
 
-			case NORMREADY:
-				nbrInNormQ--;
-				if (sendTo != null){
-					SignalList.SendSignal(NORMARRIVAL, sendTo, time + expRandom(5));
-				}
-				if (nbrInSpecQ > 0) {
-					SignalList.SendSignal(SPECARRIVAL, this, time + expRandom(5));
-				} else if (nbrInNormQ > 0){
-					SignalList.SendSignal(NORMREADY, this, time + expRandom(4));
-					
-				}
-				normLeftQ++;
-				normAccTime += time - normTime.poll();
-				break;
+	private void specarr(){
+		arrived++;
+		specQ++;
+		special.add(time);
+		if (specQ + normQ == 1) {
+			SignalList.SendSignal(READY, this, time + randomExpCalc(4));
+		}
 
-			case MEASURE:
-				noMeasurements++;
-				System.out.println(nbrInSpecQ);
-				normAcc += nbrInNormQ;
-				specAcc += nbrInSpecQ;
-				
-				//System.out.println("acc: " + accumulated);
-				SignalList.SendSignal(MEASURE, this, time + 2*slump.nextDouble());
-				break;
+	}
+
+	private void normarr(){
+		arrived++;
+		normQ++;
+		normal.add(time);
+		if (specQ + normQ == 1) {
+			SignalList.SendSignal(READY, this, time + randomExpCalc(4));
+		}
+	}
+
+	private void ready(){
+		if (specQ > 0){
+			waitTimeS = (time - special.poll());
+			totTimeS += waitTimeS;
+			specQ--;
+			sReady++;
+		} else if (normQ > 0){
+			waitTimeN = (time - normal.poll());
+			totTimeN += waitTimeN;
+			normQ--;
+			nReady++;
+		} 
+		if(waitTimeS > 15.0 || waitTimeN > 15.0){
+			newCashierNeeded = true;
+		}
+		if (specQ > 0 || normQ > 0){
+			SignalList.SendSignal(READY, this, time + randomExpCalc(4));
 		}
 	}
 }

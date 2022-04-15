@@ -16,16 +16,24 @@ class Gen extends Proc{
 	public double lambda;  //Hur m�nga per sekund som ska generas //How many to generate per second
 	public int arrivals = 0; 
 	//H�r nedan anger man vad som ska g�ras n�r en signal kommer //What to do when a signal arrives
+	
+	
 	public void TreatSignal(Signal x){
 		switch (x.signalType){
-			case NORMREADY:
-				arrivals++;
-				if(slump.nextInt(9) == 0)
+			case READY:
+				if(slump.nextInt(2) == 0) //Change nextInt value for different cases
 					SignalList.SendSignal(SPECARRIVAL, sendTo, time);
 				else 
 					SignalList.SendSignal(NORMARRIVAL, sendTo, time);
-				SignalList.SendSignal(NORMREADY, this, time + -lambda * Math.log(1 - slump.nextDouble()));
+				SignalList.SendSignal(READY, this, time + randomExpCalc(5));
 				break;
 		}
 	}
+	
+	private double randomExpCalc(double mean) {
+		double lambda = 1/mean;
+		return -(1/lambda) * Math.log(1 - slump.nextDouble());
+	}
+	
+
 }
